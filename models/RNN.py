@@ -7,6 +7,7 @@ from data_utils import TrumpTranscript
 
 ## The RNNScratch and RNNLMScratch is copied from my own notes which itself is 
 ## from the book d2l.ai
+## Used Embeddings instead of one hot
 
 class RNNScratch(d2l.Module):
     """The RNN model implemented from scratch."""
@@ -38,6 +39,7 @@ class RNNLMScratch(d2l.Classifier):
     def __init__(self, rnn, vocab_size, lr=0.01):
         super().__init__()
         self.save_hyperparameters()
+        self.embedding = nn.Embedding(vocab_size, rnn.num_inputs)
         self.init_params()
 
     def init_params(self):
@@ -54,17 +56,14 @@ class RNNLMScratch(d2l.Classifier):
     def validation_step(self, batch):
         l = self.loss(self(*batch[:-1]), batch[-1])
         self.plot('ppl', torch.exp(l), train=False)
-
-    def one_hot(self, X):
-        # Output shape: (num_steps, batch_size, vocab_size)
-        return F.one_hot(X.T, self.vocab_size).type(torch.float32)
     
     def output_layer(self, rnn_outputs):
         outputs = [torch.matmul(H, self.W_hq) + self.b_q for H in rnn_outputs]
         return torch.stack(outputs, 1)
 
     def forward(self, X, state=None):
-        embs = self.one_hot(X)
+        embs = self.embedding(X)
+        embs = embs.permute(1, 0, 2)
         rnn_outputs, _ = self.rnn(embs, state)
         return self.output_layer(rnn_outputs)
     
@@ -79,12 +78,12 @@ class RNNLMScratch(d2l.Classifier):
             else:  # Predict num_preds steps
                 Y = self.output_layer(rnn_outputs)
                 outputs.append(int(Y.argmax(axis=2).reshape(1)))
-        return ''.join([vocab.idx_to_token[i] for i in outputs])
+        return ' '.join([vocab.idx_to_token[i] for i in outputs])
 
     
-data = TrumpTranscript(batch_size=1024, num_steps=32)
-rnn = RNNScratch(num_inputs=len(data.vocab), num_hiddens=32)
+data = TrumpTranscript(batch_size=64, num_steps=32)
+rnn = RNNScratch(num_inputs=64, num_hiddens=32)
 model = RNNLMScratch(rnn, vocab_size=len(data.vocab), lr=1)
 trainer = d2l.Trainer(max_epochs=100, gradient_clip_val=1, num_gpus=1)
 trainer.fit(model, data)
-model.predict('make america', 20, data.vocab, d2l.try_gpu())
+print(model.predict('make america', 20, data.vocab, d2l.try_gpu()))

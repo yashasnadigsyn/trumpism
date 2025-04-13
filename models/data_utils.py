@@ -20,7 +20,7 @@ class TrumpTranscript(d2l.DataModule):
 
     def _tokenize(self, text):
         """Defined in :numref:`sec_text-sequence`"""
-        return list(text)
+        return text.split()
 
     def build(self, raw_text, vocab=None):
         """Defined in :numref:`sec_text-sequence`"""
